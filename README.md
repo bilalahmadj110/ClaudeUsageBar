@@ -41,7 +41,7 @@ switching to a Claude Code session, and typing it. This keeps the one number you
 Build it from source (takes a few seconds):
 
 ```sh
-git clone https://github.com/<your-username>/ClaudeUsageBar.git
+git clone https://github.com/bilalahmadj110/ClaudeUsageBar.git
 cd ClaudeUsageBar
 ./build.sh
 open ClaudeUsageBar.app

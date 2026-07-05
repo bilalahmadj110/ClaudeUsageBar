@@ -91,7 +91,7 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            Button { store.refresh() } label: { Label(refreshLabel, systemImage: "arrow.clockwise") }
+            Button { store.refresh(force: true) } label: { Label(refreshLabel, systemImage: "arrow.clockwise") }
                 .buttonStyle(.borderless)
             Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }

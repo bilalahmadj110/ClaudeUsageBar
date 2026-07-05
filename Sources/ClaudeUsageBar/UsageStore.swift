@@ -17,6 +17,10 @@ final class UsageStore: ObservableObject {
     private var isScanning = false
     private var isFetchingLimits = false
 
+    // Rate-limit backoff: after a 429, skip auto-polls for a growing cooldown (5→10→20→30 min).
+    private var throttleUntil: Date?
+    private var throttleStreak = 0
+
     init() {
         loadCache()
         rebuildActivity()
@@ -26,27 +30,41 @@ final class UsageStore: ObservableObject {
 
     // MARK: - Refresh (both the real limits and the local activity)
 
-    func refresh() {
-        refreshLimits()
+    /// `force` (a manual Refresh click) bypasses the rate-limit backoff; the timer does not.
+    func refresh(force: Bool = false) {
+        refreshLimits(force: force)
         refreshLogs()
     }
 
-    func refreshLimits() {
+    func refreshLimits(force: Bool = false) {
         guard !isFetchingLimits else { return }
+        if !force, let until = throttleUntil, Date() < until { return }   // in cooldown
         isFetchingLimits = true
         Task.detached(priority: .utility) {
             let result = LimitsFetcher.fetch()
-            await MainActor.run { [weak self] in
-                guard let self else { return }
-                self.isFetchingLimits = false
-                // A transient failure (429 / network blip) shouldn't blank good numbers we
-                // already have — keep the last good ones and only show an error if we have none.
-                if result.error == nil || self.limits == nil || self.limits?.error != nil {
-                    self.limits = result
-                }
-                self.updateBarText()
-            }
+            await MainActor.run { [weak self] in self?.applyLimits(result) }
         }
+    }
+
+    private func applyLimits(_ result: UsageLimits) {
+        isFetchingLimits = false
+
+        if result.rateLimited {
+            throttleStreak += 1
+            let step = min(throttleStreak, 4)                       // cap growth
+            let backoff = min(1800, 300 * (1 << (step - 1)))        // 5, 10, 20, 30 min
+            throttleUntil = Date().addingTimeInterval(TimeInterval(backoff))
+        } else {
+            throttleStreak = 0
+            throttleUntil = nil
+        }
+
+        // A transient failure (429 / network blip) shouldn't blank good numbers we already
+        // have — keep the last good ones and only show an error if we have none.
+        if result.error == nil || limits == nil || limits?.error != nil {
+            limits = result
+        }
+        updateBarText()
     }
 
     private func refreshLogs() {

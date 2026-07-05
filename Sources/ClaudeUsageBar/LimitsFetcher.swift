@@ -25,14 +25,15 @@ enum LimitsFetcher {
         let (limits, status) = httpUsage(token: token)
         if let limits { return limits }
         switch status {
-        case 429: return failure("Usage check rate-limited — retrying shortly.")
+        case 429: return failure("Usage check rate-limited — backing off.", rateLimited: true)
         case 401, 403: return failure("Open Claude Code to refresh your sign-in.")
         default: return failure("Usage temporarily unavailable — retrying.")
         }
     }
 
-    private static func failure(_ message: String) -> UsageLimits {
-        UsageLimits(session: nil, weeklyAll: nil, scoped: [], fetchedAt: Date(), source: "none", error: message)
+    private static func failure(_ message: String, rateLimited: Bool = false) -> UsageLimits {
+        UsageLimits(session: nil, weeklyAll: nil, scoped: [], fetchedAt: Date(),
+                    source: "none", error: message, rateLimited: rateLimited)
     }
 
     // MARK: - Keychain (read-only; the `security` tool touches only the Keychain, not TCC folders)

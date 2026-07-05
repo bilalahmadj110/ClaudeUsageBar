@@ -75,7 +75,10 @@ Everything runs locally. The app gets the real numbers the same way Claude Code 
    the token and returns the same data.
 
 No servers, no analytics, no accounts. The only network request is the usage check itself,
-straight to Anthropic — exactly the one Claude Code already makes. Token counts in the
+straight to Anthropic — exactly the one Claude Code already makes. It never launches other
+programs and never refreshes your token (that's Claude Code's job — refreshing it here could
+break your sign-in). It checks roughly every couple of minutes and automatically backs off if
+the endpoint is busy, so it stays a light, well-behaved client. Token counts in the
 "Activity today" section are computed from the local log files under `~/.claude/projects`.
 
 Settings are stored in `UserDefaults`; a small activity cache lives in

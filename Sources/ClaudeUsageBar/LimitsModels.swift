@@ -25,8 +25,9 @@ struct UsageLimits {
     var weeklyAll: LimitLine?
     var scoped: [ScopedLimit]
     var fetchedAt: Date
-    var source: String            // "api" | "cli" | "none"
+    var source: String            // "api" | "none"
     var error: String?
+    var rateLimited = false        // true when the endpoint returned 429 → back off
 
     /// The line the menu-bar label should reflect, per the user's choice.
     func line(for choice: LimitChoice) -> LimitLine? {

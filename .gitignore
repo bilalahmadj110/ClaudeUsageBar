@@ -1,0 +1,14 @@
+# Swift build output
+.build/
+.swiftpm/
+Package.resolved
+
+# Assembled app bundle (built locally via ./build.sh)
+*.app/
+
+# Xcode
+xcuserdata/
+*.xcodeproj/
+
+# macOS
+.DS_Store

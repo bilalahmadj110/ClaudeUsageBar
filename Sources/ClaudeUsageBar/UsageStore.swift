@@ -18,8 +18,10 @@ final class UsageStore: ObservableObject {
     private var isFetchingLimits = false
 
     // Rate-limit backoff: after a 429, skip auto-polls for a growing cooldown (5→10→20→30 min).
+    // The endpoint is known to rate-limit aggressively, so we fetch as rarely as we can.
     private var throttleUntil: Date?
     private var throttleStreak = 0
+    private var lastAttempt: Date?
 
     init() {
         loadCache()
@@ -36,9 +38,24 @@ final class UsageStore: ObservableObject {
         refreshLogs()
     }
 
-    func refreshLimits(force: Bool = false) {
+    /// Called when the dropdown opens: refresh only if the last attempt is stale enough,
+    /// so opening it gives fresh-ish numbers without hammering the endpoint.
+    func onDropdownOpen() {
+        refreshLimits(minGap: 120)
+        refreshLogs()
+    }
+
+    /// - Parameters:
+    ///   - force: bypass backoff + staleness gate (explicit user action).
+    ///   - minGap: skip if a fetch was attempted within this many seconds.
+    func refreshLimits(force: Bool = false, minGap: TimeInterval = 0) {
         guard !isFetchingLimits else { return }
-        if !force, let until = throttleUntil, Date() < until { return }   // in cooldown
+        let now = Date()
+        if !force {
+            if let until = throttleUntil, now < until { return }                       // backing off
+            if minGap > 0, let last = lastAttempt, now.timeIntervalSince(last) < minGap { return }
+        }
+        lastAttempt = now
         isFetchingLimits = true
         Task.detached(priority: .utility) {
             let result = LimitsFetcher.fetch()
@@ -51,9 +68,9 @@ final class UsageStore: ObservableObject {
 
         if result.rateLimited {
             throttleStreak += 1
-            let step = min(throttleStreak, 4)                       // cap growth
-            let backoff = min(1800, 300 * (1 << (step - 1)))        // 5, 10, 20, 30 min
-            throttleUntil = Date().addingTimeInterval(TimeInterval(backoff))
+            let step = min(throttleStreak, 4)                              // cap growth
+            let expo = Double(min(1800, 300 * (1 << (step - 1))))          // 5, 10, 20, 30 min
+            throttleUntil = Date().addingTimeInterval(max(expo, result.retryAfter ?? 0))
         } else {
             throttleStreak = 0
             throttleUntil = nil

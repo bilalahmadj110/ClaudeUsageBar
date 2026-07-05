@@ -77,8 +77,9 @@ Everything runs locally. The app gets the real numbers the same way Claude Code 
 No servers, no analytics, no accounts. The only network request is the usage check itself,
 straight to Anthropic — exactly the one Claude Code already makes. It never launches other
 programs and never refreshes your token (that's Claude Code's job — refreshing it here could
-break your sign-in). It checks roughly every couple of minutes and automatically backs off if
-the endpoint is busy, so it stays a light, well-behaved client. Token counts in the
+break your sign-in). It refreshes when you open the menu, plus a slow background check (default every 10 minutes),
+and backs off automatically if the endpoint is busy. Anthropic's usage endpoint rate-limits
+aggressively, so the app deliberately requests as rarely as possible. Token counts in the
 "Activity today" section are computed from the local log files under `~/.claude/projects`.
 
 Settings are stored in `UserDefaults`; a small activity cache lives in

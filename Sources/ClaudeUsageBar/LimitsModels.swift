@@ -28,6 +28,7 @@ struct UsageLimits {
     var source: String            // "api" | "none"
     var error: String?
     var rateLimited = false        // true when the endpoint returned 429 → back off
+    var retryAfter: TimeInterval?  // server's Retry-After on a 429, if it sent a usable one
 
     /// The line the menu-bar label should reflect, per the user's choice.
     func line(for choice: LimitChoice) -> LimitLine? {

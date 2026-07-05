@@ -27,6 +27,6 @@ enum Settings {
     }
     static var refreshInterval: TimeInterval {
         let v = d.double(forKey: Keys.refreshInterval)
-        return v > 0 ? v : 120   // usage % changes slowly; be gentle on the endpoint
+        return v > 0 ? v : 600   // the usage endpoint rate-limits hard; poll rarely (10 min)
     }
 }

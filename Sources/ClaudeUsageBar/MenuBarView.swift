@@ -16,6 +16,7 @@ struct MenuBarView: View {
         }
         .frame(width: 320)
         .padding(12)
+        .onAppear { store.onDropdownOpen() }
     }
 
     private var mainPane: some View {
@@ -174,7 +175,7 @@ struct SettingsPane: View {
     @ObservedObject var store: UsageStore
 
     @AppStorage(Settings.Keys.limitChoice) private var limitChoice = LimitChoice.session.rawValue
-    @AppStorage(Settings.Keys.refreshInterval) private var refreshInterval = 120.0
+    @AppStorage(Settings.Keys.refreshInterval) private var refreshInterval = 600.0
     @State private var launchAtLogin = LoginItem.isEnabled
 
     var body: some View {
@@ -202,16 +203,18 @@ struct SettingsPane: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Refresh every").font(.caption).foregroundStyle(.secondary)
+                Text("Background refresh").font(.caption).foregroundStyle(.secondary)
                 Picker("", selection: $refreshInterval) {
-                    Text("30s").tag(30.0)
-                    Text("60s").tag(60.0)
-                    Text("2m").tag(120.0)
                     Text("5m").tag(300.0)
+                    Text("10m").tag(600.0)
+                    Text("20m").tag(1200.0)
+                    Text("30m").tag(1800.0)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .onChange(of: refreshInterval) { _, _ in store.settingsChanged() }
+                Text("It also refreshes when you open this menu. The usage endpoint rate-limits hard, so slower is safer.")
+                    .font(.caption2).foregroundStyle(.tertiary)
             }
 
             Text("Live figures from Claude Code's /usage. Nothing leaves your machine except the same usage check Claude Code already makes.")

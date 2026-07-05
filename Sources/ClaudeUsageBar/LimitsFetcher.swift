@@ -22,18 +22,18 @@ enum LimitsFetcher {
         if let exp, exp < Date().addingTimeInterval(30) {
             return failure("Token expired — open Claude Code to refresh.")
         }
-        let (limits, status) = httpUsage(token: token)
+        let (limits, status, retryAfter) = httpUsage(token: token)
         if let limits { return limits }
         switch status {
-        case 429: return failure("Usage check rate-limited — backing off.", rateLimited: true)
+        case 429: return failure("Usage check rate-limited — backing off.", rateLimited: true, retryAfter: retryAfter)
         case 401, 403: return failure("Open Claude Code to refresh your sign-in.")
         default: return failure("Usage temporarily unavailable — retrying.")
         }
     }
 
-    private static func failure(_ message: String, rateLimited: Bool = false) -> UsageLimits {
+    private static func failure(_ message: String, rateLimited: Bool = false, retryAfter: TimeInterval? = nil) -> UsageLimits {
         UsageLimits(session: nil, weeklyAll: nil, scoped: [], fetchedAt: Date(),
-                    source: "none", error: message, rateLimited: rateLimited)
+                    source: "none", error: message, rateLimited: rateLimited, retryAfter: retryAfter)
     }
 
     // MARK: - Keychain (read-only; the `security` tool touches only the Keychain, not TCC folders)
@@ -61,7 +61,7 @@ enum LimitsFetcher {
 
     // MARK: - Direct HTTP
 
-    private static func httpUsage(token: String) -> (UsageLimits?, Int?) {
+    private static func httpUsage(token: String) -> (UsageLimits?, Int?, TimeInterval?) {
         var req = URLRequest(url: usageURL)
         req.httpMethod = "GET"
         req.timeoutInterval = 8
@@ -72,15 +72,22 @@ enum LimitsFetcher {
 
         var out: UsageLimits?
         var status: Int?
+        var retryAfter: TimeInterval?
         let sem = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: req) { data, resp, _ in
             defer { sem.signal() }
-            status = (resp as? HTTPURLResponse)?.statusCode
+            let http = resp as? HTTPURLResponse
+            status = http?.statusCode
+            // Honor Retry-After only when it's a usable positive value (the endpoint is
+            // known to often send "0", which we ignore in favor of our own backoff).
+            if let ra = http?.value(forHTTPHeaderField: "Retry-After"), let s = Double(ra), s > 0 {
+                retryAfter = s
+            }
             guard status == 200, let data else { return }
             out = parseJSON(data)
         }.resume()
         _ = sem.wait(timeout: .now() + 10)
-        return (out, status)
+        return (out, status, retryAfter)
     }
 
     private static func parseJSON(_ data: Data) -> UsageLimits? {
